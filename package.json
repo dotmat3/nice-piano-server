@@ -1,0 +1,14 @@
+{
+  "name": "nice-piano-server",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A nice piano server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "socket.io": "^4.0.2"
+  }
+}
