@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const fs = require("fs");
 
 const LATENCY_PERIOD_MS = 2000;
@@ -22,6 +24,10 @@ const httpsServer = require("https").createServer(
 );
 
 const io = require("socket.io")(httpsServer);
+if (process.env.REDIS_HOST) {
+	const redis = require("socket.io-redis");
+	io.adapter(redis({ host: process.env.REDIS_HOST, port: 6379 }));
+}
 
 function getRoomId(socket) {
 	for (const roomId of socket.rooms) if (roomId != null && roomId != socket.id) return roomId;
@@ -61,7 +67,7 @@ io.on("connection", (socket) => {
 		const roomClients = io.of("/").adapter.rooms.get(roomId);
 		for (const socketId of roomClients) {
 			const socket = io.of("/").sockets.get(socketId);
-			io.to(socket).emit("newUser", socket.username);
+			io.to(socket.id).emit("newUser", socket.username);
 		}
 	});
 });
@@ -71,6 +77,7 @@ setInterval(() => {
 	io.emit("ping");
 }, LATENCY_PERIOD_MS);
 
-httpsServer.listen(5000, () => {
-	console.log("Server started");
+const port = process.argv[2];
+httpsServer.listen(port, () => {
+	console.log("Server started on port", port);
 });

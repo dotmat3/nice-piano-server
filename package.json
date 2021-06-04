@@ -5,10 +5,13 @@
   "description": "A nice piano server",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js 5000"
   },
   "license": "MIT",
   "dependencies": {
-    "socket.io": "^4.0.2"
+    "dotenv": "^10.0.0",
+    "redis": "^3.1.2",
+    "socket.io": "^4.0.2",
+    "socket.io-redis": "^6.1.1"
   }
 }
