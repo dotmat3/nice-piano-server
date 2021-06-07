@@ -1,11 +1,13 @@
 require("dotenv").config();
-
 const fs = require("fs");
+const https = require("https");
+const socketio = require("socket.io");
+const AWS = require("aws-sdk");
 
 const LATENCY_PERIOD_MS = 2000;
 let pingStartTime = null;
 
-const httpsServer = require("https").createServer(
+const httpsServer = https.createServer(
   {
     key: fs.readFileSync("certs/key.pem"),
     cert: fs.readFileSync("certs/cert.pem"),
@@ -23,11 +25,20 @@ const httpsServer = require("https").createServer(
   }
 );
 
-const io = require("socket.io")(httpsServer);
+const io = socketio(httpsServer);
 if (process.env.REDIS_HOST) {
   const redis = require("socket.io-redis");
   io.adapter(redis({ host: process.env.REDIS_HOST, port: 6379 }));
 }
+
+const db = new AWS.DynamoDB.DocumentClient({
+  region: "us-east-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    sessionToken: process.env.AWS_SESSION_TOKEN,
+  },
+});
 
 function getRoomId(socket) {
   for (const roomId of socket.rooms)
@@ -35,16 +46,7 @@ function getRoomId(socket) {
 }
 
 io.on("connection", (socket) => {
-  socket.on("note_on", (data) => {
-    const roomId = getRoomId(socket);
-    socket.to(roomId).emit("note_on", { ...data, username: socket.username });
-  });
-
-  socket.on("note_off", (data) => {
-    const roomId = getRoomId(socket);
-    socket.to(roomId).emit("note_off", { ...data, username: socket.username });
-  });
-
+  // Room events handling
   socket.on("disconnecting", () => {
     socket.roomLeft = getRoomId(socket);
   });
@@ -70,6 +72,51 @@ io.on("connection", (socket) => {
       const socket = io.of("/").sockets.get(socketId);
       io.to(socket.id).emit("newUser", socket.username);
     }
+  });
+
+  // Piano handling
+  socket.on("note_on", (data) => {
+    const roomId = getRoomId(socket);
+    socket.to(roomId).emit("note_on", { ...data, username: socket.username });
+  });
+
+  socket.on("note_off", (data) => {
+    const roomId = getRoomId(socket);
+    socket.to(roomId).emit("note_off", { ...data, username: socket.username });
+  });
+
+  // Database handling
+  socket.on("getRecordings", async () => {
+    if (!process.env.AWS_ACCESS_KEY_ID)
+      return socket.emit("recordingsList", []);
+    const username = socket.username;
+
+    db.query(
+      {
+        TableName: process.env.DYNAMO_DB_TABLE,
+        ExpressionAttributeValues: { ":u": username },
+        KeyConditionExpression: "username = :u",
+      },
+      (err, data) => {
+        socket.emit("recordingsList", data.Items);
+      }
+    );
+  });
+
+  socket.on("saveRecording", (recording) => {
+    if (!process.env.AWS_ACCESS_KEY_ID) return socket.emit("recordingSaved");
+
+    const username = socket.username;
+    db.put(
+      {
+        TableName: process.env.DYNAMO_DB_TABLE,
+        Item: { ...recording, username },
+      },
+      (err) => {
+        if (err) socket.emit("recordingSaveError", err.message);
+        else socket.emit("recordingSaved");
+      }
+    );
   });
 });
 
