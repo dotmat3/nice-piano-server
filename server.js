@@ -98,7 +98,8 @@ io.on("connection", (socket) => {
         KeyConditionExpression: "username = :u",
       },
       (err, data) => {
-        socket.emit("recordingsList", data.Items);
+        if (data) socket.emit("recordingsList", data.Items);
+        else socket.emit("recordingsList", []);
       }
     );
   });
@@ -115,6 +116,43 @@ io.on("connection", (socket) => {
       (err) => {
         if (err) socket.emit("recordingSaveError", err.message);
         else socket.emit("recordingSaved");
+      }
+    );
+  });
+
+  socket.on("updateRecordingName", ({ name, recordingTime }) => {
+    if (!process.env.AWS_ACCESS_KEY_ID) return socket.emit("recordingUpdated");
+
+    const username = socket.username;
+    db.update(
+      {
+        TableName: process.env.DYNAMO_DB_TABLE,
+        Key: { username, recordingTime },
+        UpdateExpression: "set #n = :n",
+        ExpressionAttributeNames: { "#n": "name" },
+        ExpressionAttributeValues: {
+          ":n": name,
+        },
+      },
+      (err) => {
+        if (err) socket.emit("recordingUpdateError", err.message);
+        else socket.emit("recordingUpdated");
+      }
+    );
+  });
+
+  socket.on("deleteRecording", (recordingTime) => {
+    if (!process.env.AWS_ACCESS_KEY_ID) return socket.emit("recordingDeleted");
+
+    const username = socket.username;
+    db.delete(
+      {
+        TableName: process.env.DYNAMO_DB_TABLE,
+        Key: { username, recordingTime },
+      },
+      (err) => {
+        if (err) socket.emit("recordingDeleteError", err.message);
+        else socket.emit("recordingDeleted");
       }
     );
   });
