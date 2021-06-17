@@ -160,7 +160,7 @@ io.on("connection", (socket) => {
 
 setInterval(() => {
   pingStartTime = Date.now();
-  io.emit("ping");
+  io.of("/").sockets.forEach((socket) => socket.emit("ping"));
 }, LATENCY_PERIOD_MS);
 
 const port = process.argv[2];
