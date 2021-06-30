@@ -1,18 +1,13 @@
 require("dotenv").config();
 const fs = require("fs");
-const https = require("https");
+const http = require("http");
 const socketio = require("socket.io");
 const AWS = require("aws-sdk");
 
 const LATENCY_PERIOD_MS = 2000;
 let pingStartTime = null;
 
-const httpsServer = https.createServer(
-  {
-    key: fs.readFileSync("certs/key.pem"),
-    cert: fs.readFileSync("certs/cert.pem"),
-  },
-  (req, res) => {
+const httpServer = http.createServer({}, (req, res) => {
     fs.readFile(__dirname + req.url, (err, data) => {
       if (err) {
         res.writeHead(404);
@@ -25,7 +20,7 @@ const httpsServer = https.createServer(
   }
 );
 
-const io = socketio(httpsServer);
+const io = socketio(httpServer);
 if (process.env.REDIS_HOST) {
   const redis = require("socket.io-redis");
   io.adapter(redis({ host: process.env.REDIS_HOST, port: 6379 }));
@@ -164,6 +159,6 @@ setInterval(() => {
 }, LATENCY_PERIOD_MS);
 
 const port = process.argv[2];
-httpsServer.listen(port, () => {
+httpServer.listen(port, () => {
   console.log("Server started on port", port);
 });
