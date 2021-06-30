@@ -5,7 +5,7 @@
   "description": "A nice piano server",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js 5000"
+    "start": "set USE_HTTPS=true && node server.js 5000"
   },
   "license": "MIT",
   "dependencies": {

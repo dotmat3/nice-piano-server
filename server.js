@@ -1,26 +1,36 @@
 require("dotenv").config();
 const fs = require("fs");
 const http = require("http");
+const https = require("https");
 const socketio = require("socket.io");
 const AWS = require("aws-sdk");
 
 const LATENCY_PERIOD_MS = 2000;
 let pingStartTime = null;
 
-const httpServer = http.createServer({}, (req, res) => {
-    fs.readFile(__dirname + req.url, (err, data) => {
-      if (err) {
-        res.writeHead(404);
-        res.end(JSON.stringify(err));
-        return;
-      }
-      res.writeHead(200);
-      res.end(data);
-    });
-  }
-);
+function handleRequest(req, res) {
+  fs.readFile(__dirname + req.url, (err, data) => {
+    if (err) {
+      res.writeHead(404);
+      res.end(JSON.stringify(err));
+      return;
+    }
+    res.writeHead(200);
+    res.end(data);
+  });
+}
 
-const io = socketio(httpServer);
+const webServer = process.env.USE_HTTPS
+  ? https.createServer(
+      {
+        key: fs.readFileSync("certs/key.pem"),
+        cert: fs.readFileSync("certs/cert.pem"),
+      },
+      handleRequest
+    )
+  : http.createServer({}, handleRequest);
+
+const io = socketio(webServer);
 if (process.env.REDIS_HOST) {
   const redis = require("socket.io-redis");
   io.adapter(redis({ host: process.env.REDIS_HOST, port: 6379 }));
@@ -45,6 +55,7 @@ io.on("connection", (socket) => {
   socket.on("disconnecting", () => {
     socket.roomLeft = getRoomId(socket);
   });
+
   socket.on("disconnect", (reason) => {
     io.to(socket.roomLeft).emit("userDisconnected", socket.username);
   });
@@ -159,6 +170,9 @@ setInterval(() => {
 }, LATENCY_PERIOD_MS);
 
 const port = process.argv[2];
-httpServer.listen(port, () => {
-  console.log("Server started on port", port);
+webServer.listen(port, () => {
+  console.log(
+    (process.env.USE_HTTPS ? "HTTPS" : "HTTP") + " server started on port",
+    port
+  );
 });
