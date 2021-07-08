@@ -9,15 +9,11 @@ const LATENCY_PERIOD_MS = 2000;
 let pingStartTime = null;
 
 function handleRequest(req, res) {
-  fs.readFile(__dirname + req.url, (err, data) => {
-    if (err) {
-      res.writeHead(404);
-      res.end(JSON.stringify(err));
-      return;
-    }
+  if (req.url === "/") {
     res.writeHead(200);
-    res.end(data);
-  });
+    res.end();
+    return;
+  }
 }
 
 const webServer = process.env.USE_HTTPS
