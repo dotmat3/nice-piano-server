@@ -10,8 +10,16 @@ let pingStartTime = null;
 
 function handleRequest(req, res) {
   if (req.url === "/") {
+    const data =
+      "Server running " +
+      (process.env.USE_HTTPS ? "HTTPS" : "HTTP") +
+      " on port: " +
+      process.argv[2] +
+      "\n" +
+      "Using redis host: " +
+      (process.env.REDIS_HOST ? process.env.REDIS_HOST : "False");
     res.writeHead(200);
-    res.end();
+    res.end(data);
     return;
   }
 }
@@ -34,11 +42,6 @@ if (process.env.REDIS_HOST) {
 
 const db = new AWS.DynamoDB.DocumentClient({
   region: "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    sessionToken: process.env.AWS_SESSION_TOKEN,
-  },
 });
 
 function getRoomId(socket) {
@@ -89,8 +92,6 @@ io.on("connection", (socket) => {
 
   // Database handling
   socket.on("getRecordings", async () => {
-    if (!process.env.AWS_ACCESS_KEY_ID)
-      return socket.emit("recordingsList", []);
     const username = socket.username;
 
     db.query(
@@ -107,8 +108,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("saveRecording", (recording) => {
-    if (!process.env.AWS_ACCESS_KEY_ID) return socket.emit("recordingSaved");
-
     const username = socket.username;
     db.put(
       {
@@ -123,8 +122,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("updateRecordingName", ({ name, recordingTime }) => {
-    if (!process.env.AWS_ACCESS_KEY_ID) return socket.emit("recordingUpdated");
-
     const username = socket.username;
     db.update(
       {
@@ -144,8 +141,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("deleteRecording", (recordingTime) => {
-    if (!process.env.AWS_ACCESS_KEY_ID) return socket.emit("recordingDeleted");
-
     const username = socket.username;
     db.delete(
       {
